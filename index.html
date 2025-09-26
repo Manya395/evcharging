@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkEV - Smart Parking & Charging</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Lighter slate background */
+        }
+        .view { display: none; }
+        .view.active { display: block; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #fff;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .login-bg {
+             background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+        }
+        .card {
+            @apply bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300;
+        }
+        .icon-text {
+            @apply flex items-center text-sm text-gray-600;
+        }
+        .icon-text i {
+            @apply mr-2 w-5 text-center text-indigo-500;
+        }
+        
+        /* Added notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            backdrop-filter: blur(10px);
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .notification.info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+        
+        .notification.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+        
+        .notification-bell {
+            position: fixed;
+            top: 20px;
+            right: 80px;
+            z-index: 50;
+            background: #4f46e5;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .notification-bell:hover {
+            background: #4338ca;
+            transform: scale(1.05);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .notification-panel {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 350px;
+            max-height: 400px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            overflow: hidden;
+            transform: translateY(-10px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .notification-panel.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .notification-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.2s ease;
+        }
+        
+        .notification-item:hover {
+            background-color: #f8fafc;
+        }
+        
+        .notification-item.unread {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* Added email setup modal styles */
+        .email-setup-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .email-setup-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <!-- App Container -->
+    <div id="app" class="min-h-screen">
+
+        <!-- Added email setup modal -->
+        <div id="email-setup-modal" class="email-setup-modal hidden">
+            <div class="email-setup-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Email Notification Setup</h2>
+                    <button onclick="closeEmailSetup()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="text-gray-600 mb-4">To enable Gmail notifications, you need to set up EmailJS. This is a one-time setup:</p>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <h3 class="font-semibold text-blue-800 mb-2">Quick Setup Instructions:</h3>
+                        <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                            <li>Go to <a href="https://www.emailjs.com" target="_blank" class="underline">emailjs.com</a> and create a free account</li>
+                            <li>Add a Gmail service in your EmailJS dashboard</li>
+                            <li>Create an email template with variables: {{user_name}}, {{message}}, {{spot_name}}</li>
+                            <li>Copy your Service ID, Template ID, and Public Key below</li>
+                        </ol>
+                    </div>
+                    
+                    <form id="email-config-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">EmailJS Service ID</label>
+                            <input type="text" id="service-id" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="service_xxxxxxx" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">EmailJS Template ID</label>
+                            <input type="text" id="template-id" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="template_xxxxxxx" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">EmailJS Public Key</label>
+                            <input type="text" id="public-key" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="xxxxxxxxxxxxxxx" required>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">
+                                Save Configuration
+                            </button>
+                            <button type="button" onclick="skipEmailSetup()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400">
+                                Skip for Now
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Added notification bell and panel -->
+        <div id="notification-bell" class="notification-bell hidden" onclick="toggleNotificationPanel()">
+            <i class="fas fa-bell"></i>
+            <div id="notification-badge" class="notification-badge hidden">0</div>
+        </div>
+        
+        <div id="notification-panel" class="notification-panel">
+            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                <h3 class="font-semibold text-gray-800">Notifications</h3>
+                <button onclick="markAllAsRead()" class="text-sm text-blue-600 hover:text-blue-800">Mark all as read</button>
+            </div>
+            <div id="notification-list" class="max-h-80 overflow-y-auto">
+                <div class="p-4 text-center text-gray-500">
+                    <i class="fas fa-bell-slash text-2xl mb-2"></i>
+                    <p>No notifications yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header id="app-header" class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40 hidden">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-20">
+                    <div class="flex items-center">
+                        <span class="text-3xl font-extrabold text-indigo-900"><i class="fas fa-parking mr-2 text-blue-500"></i>ParkEV</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                         <span id="welcome-message" class="text-gray-600 text-sm hidden md:inline"></span>
+                         <!-- Added email settings button -->
+                         <button onclick="openEmailSettings()" class="text-gray-600 hover:text-indigo-600 p-2 rounded-lg transition-colors" title="Email Settings">
+                             <i class="fas fa-envelope-open-text"></i>
+                         </button>
+                         <button onclick="handleLogout()" class="bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-900 transition-all">Logout</button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Login View -->
+            <div id="login-view" class="view active">
+                <div class="min-h-screen w-full login-bg flex flex-col justify-center items-center p-4">
+                    <div class="text-center mb-8">
+                         <h1 class="text-6xl font-extrabold text-white flex items-center">
+                            <i class="fas fa-parking mr-4 text-blue-400"></i>ParkEV
+                         </h1>
+                         <p class="text-indigo-200 mt-2">The Future of EV Charging and Parking</p>
+                    </div>
+                    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-2xl">
+                        <h2 class="text-3xl font-bold text-center mb-2 text-slate-800">Welcome Back</h2>
+                        <p class="text-center text-gray-500 mb-8">Sign in to access your EV network.</p>
+                        <form id="login-form" class="space-y-4">
+                            <input type="email" placeholder="Email Address" class="w-full p-3 border border-gray-200 rounded-lg" required value="user@parkev.com">
+                            <input type="password" placeholder="Password" class="w-full p-3 border border-gray-200 rounded-lg" required value="user123">
+                            <button type="submit" class="w-full bg-indigo-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-900 transition-all duration-300">Sign In</button>
+                        </form>
+                        <p class="text-center mt-6 text-sm">
+                            No account? <a href="#" onclick="switchAuthView('signup')" class="font-medium text-blue-600 hover:text-blue-500">Sign Up</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signup View -->
+            <div id="signup-view" class="view">
+                 <div class="min-h-screen w-full login-bg flex flex-col justify-center items-center p-4">
+                     <div class="text-center mb-8">
+                         <h1 class="text-6xl font-extrabold text-white flex items-center">
+                            <i class="fas fa-parking mr-4 text-blue-400"></i>ParkEV
+                         </h1>
+                     </div>
+                     <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-2xl">
+                        <h2 class="text-3xl font-bold text-center mb-2 text-slate-800">Create Account</h2>
+                        <p class="text-center text-gray-500 mb-8">Join the future of EV charging.</p>
+                        <form id="signup-form" class="space-y-4">
+                            <input type="email" id="signup-email" placeholder="Email Address" class="w-full p-3 border rounded-lg" required>
+                            <input type="password" id="signup-password" placeholder="Password" class="w-full p-3 border rounded-lg" required>
+                            <button type="submit" class="w-full bg-indigo-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-900 transition-all duration-300">Sign Up</button>
+                        </form>
+                        <p class="text-center mt-6 text-sm">
+                            Have an account? <a href="#" onclick="switchAuthView('login')" class="font-medium text-blue-600 hover:text-blue-500">Sign In</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main App View -->
+            <div id="app-view" class="view container mx-auto p-4 sm:p-6 lg:p-8">
+                <!-- User Dashboard View -->
+                <div id="user-dashboard-view">
+                    <div class="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
+                        <h1 class="text-4xl font-bold text-slate-800">Dashboard</h1>
+                        <button onclick="openModal('journey-modal')" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all flex items-center justify-center gap-3">
+                            <i class="fas fa-route"></i>
+                            <span>Plan with JourneyIQ</span>
+                        </button>
+                    </div>
+                    <div class="card mb-8">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                             <div class="lg:col-span-1 h-96 lg:h-[600px] flex flex-col">
+                                <h2 class="text-2xl font-semibold mb-4 text-slate-700">Find Spots by City</h2>
+                                <form id="search-form" class="flex gap-2 mb-4">
+                                    <input id="search-input" type="text" placeholder="e.g., Mysuru" class="w-full p-2 border rounded-lg">
+                                    <button type="submit" class="bg-indigo-800 text-white px-4 rounded-lg hover:bg-indigo-900"><i class="fas fa-search"></i></button>
+                                </form>
+                                <div id="parking-list" class="space-y-4 overflow-y-auto no-scrollbar flex-grow p-1"></div>
+                            </div>
+                            <div class="lg:col-span-2 h-96 lg:h-[600px] rounded-xl shadow-lg overflow-hidden">
+                                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d124416.7118204687!2d77.5020228303863!3d12.95395998681223!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae1670c9b44e6d%3A0xf80c235421339af9!2sBengaluru%2C%20Karnataka!5e0!3m2!1sen!2sin!4v1695582697818!5m2!1sen!2sin" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="card">
+                            <h2 class="text-2xl font-semibold mb-4 text-slate-700"><i class="fas fa-book-bookmark mr-2 text-indigo-500"></i>My Bookings</h2>
+                            <div id="my-bookings-list" class="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar"></div>
+                        </div>
+                        <div class="card">
+                             <h2 class="text-2xl font-semibold mb-4 text-slate-700"><i class="fas fa-plus-circle mr-2 text-indigo-500"></i>My Listed Spots</h2>
+                             <div id="my-spots-list" class="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar mb-6"></div>
+                             <h3 class="text-xl font-semibold mb-4 border-t pt-6">List a New Spot</h3>
+                             <form id="add-spot-form" class="space-y-4">
+                                <input name="name" type="text" placeholder="Location Name" class="w-full p-2 border rounded-lg" required>
+                                <input name="address" type="text" placeholder="Address (incl. city)" class="w-full p-2 border rounded-lg" required>
+                                <select name="chargerType" id="add-charger-type" class="w-full p-2 border rounded-lg bg-white">
+                                    <option value="None">No Charger (Parking Only)</option>
+                                    <option value="AC Slow">AC Slow (up to 7kW)</option>
+                                    <option value="AC Fast">AC Fast (7-22kW)</option>
+                                    <option value="DC">DC Fast Charger (50kW+)</option>
+                                </select>
+                                <div>
+                                    <label id="price-label" for="add-price" class="block text-sm font-medium text-gray-700">Rate per hour (₹)</label>
+                                    <input name="rate" id="add-price" type="number" placeholder="e.g., 50" class="w-full p-2 border rounded-lg" required>
+                                </div>
+                                <select name="vehicleType" class="w-full p-2 border rounded-lg bg-white">
+                                    <option value="Both">Cars & Bikes</option> <option value="Car">Cars Only</option> <option value="Bike">Bikes Only</option>
+                                </select>
+                                <button type="submit" class="w-full bg-indigo-800 text-white py-2 rounded-lg hover:bg-indigo-900 transition">Add Spot for Approval</button>
+                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin View -->
+                <div id="admin-view" class="hidden card">
+                     <h1 class="text-4xl font-bold mb-8 text-slate-800">Admin Dashboard</h1>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
+                         <div class="bg-slate-50 p-6 rounded-lg text-center">
+                            <h3 class="text-gray-500">Total Listed Spots</h3>
+                            <p class="text-5xl font-bold mt-2" id="admin-total-spots">0</p>
+                        </div>
+                         <div class="bg-slate-50 p-6 rounded-lg text-center">
+                            <h3 class="text-gray-500">Pending Approvals</h3>
+                            <p class="text-5xl font-bold mt-2" id="admin-pending-approvals">0</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4">Peer-to-Peer Listing Approvals</h2>
+                        <div id="approval-list" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chatbot -->
+    <div id="chatbot" class="fixed bottom-5 right-5 z-50">
+        <div id="chatbot-window" class="chatbot-container bg-white w-80 h-96 rounded-xl shadow-2xl flex flex-col hidden fade-in">
+            <div class="bg-indigo-900 text-white p-3 rounded-t-xl flex justify-between items-center">
+                <h3 class="font-semibold">ParkEV Assistant</h3>
+                <button onclick="toggleChatbot()" class="text-white text-xl">&times;</button>
+            </div>
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                 <div class="bg-gray-200 p-3 rounded-lg self-start max-w-xs"><p class="text-sm">Hello! How can I help? Please select a question below.</p></div>
+            </div>
+             <div id="chat-questions" class="p-2 border-t border-gray-200 overflow-y-auto no-scrollbar"></div>
+        </div>
+        <button id="chatbot-toggle" onclick="toggleChatbot()" class="bg-indigo-800 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl hover:bg-indigo-900 transition-all">
+            <i class="fas fa-comment-dots"></i>
+        </button>
+    </div>
+
+    <!-- Modals -->
+    <div id="journey-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl p-8 w-full max-w-lg fade-in">
+             <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-slate-800">JourneyIQ Planner</h2>
+                <button onclick="closeModal('journey-modal')" class="text-gray-400 hover:text-gray-800 text-3xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="block text-sm font-medium text-gray-700">Source</label><input type="text" id="journey-source" class="mt-1 w-full p-2 border rounded-lg" placeholder="e.g., Bengaluru"></div>
+                <div><label class="block text-sm font-medium text-gray-700">Destination</label><input type="text" id="journey-destination" class="mt-1 w-full p-2 border rounded-lg" placeholder="e.g., Hubballi"></div>
+                <div><label class="block text-sm font-medium text-gray-700">Current Range (km)</label><input type="number" id="journey-range" class="mt-1 w-full p-2 border rounded-lg" placeholder="e.g., 300"></div>
+                <div><label class="block text-sm font-medium text-gray-700">Current Battery (%)</label><input type="number" id="journey-battery" class="mt-1 w-full p-2 border rounded-lg" placeholder="e.g., 80"></div>
+            </div>
+            <button id="journey-calculate-btn" onclick="calculateJourney()" class="mt-6 w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
+                <span>Calculate My Journey</span>
+            </button>
+            <div id="journey-result" class="mt-6"></div>
+        </div>
+    </div>
+    <div id="booking-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4"><div class="bg-white rounded-xl shadow-xl p-8 w-full max-w-md"><h2 class="text-2xl font-bold mb-4">Confirm Booking</h2><div id="modal-spot-details" class="mb-6"></div><div class="flex flex-col space-y-2"><button onclick="confirmBooking()" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600">Confirm & Book</button><button type="button" onclick="closeModal('booking-modal')" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300">Cancel</button></div></div></div>
+    <div id="info-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4"><div class="bg-white rounded-xl shadow-xl p-8 w-full max-w-md"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">Spot Information</h2><button onclick="closeModal('info-modal')" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div><div id="modal-info-details" class="space-y-3"></div></div></div>
+
+    <script>
+        let emailConfig = {
+            serviceId: '',
+            templateId: '',
+            publicKey: '',
+            isConfigured: false
+        };
+
+        async function sendEmailNotification(recipientEmail, subject, message, spotName = '') {
+            console.log("[v0] Email notification attempt:", {
+                recipientEmail,
+                subject,
+                message,
+                spotName,
+                isConfigured: emailConfig.isConfigured,
+                config: emailConfig
+            });
+
+            if (!emailConfig.isConfigured) {
+                console.log('[v0] Email not configured, skipping email notification');
+                showToastNotification('info', 'Email Setup Required', 'Configure email notifications in settings to receive Gmail alerts');
+                return;
+            }
+
+            try {
+                console.log("[v0] Attempting to send email with EmailJS...");
+                
+                const templateParams = {
+                    to_email: recipientEmail,
+                    user_name: recipientEmail.split('@')[0],
+                    subject: subject,
+                    message: message,
+                    spot_name: spotName,
+                    from_name: 'ParkEV Platform'
+                };
+
+                console.log("[v0] Template params:", templateParams);
+
+                const response = await emailjs.send(
+                    emailConfig.serviceId,
+                    emailConfig.templateId,
+                    templateParams
+                );
+
+                console.log('[v0] Email sent successfully:', response);
+                
+                // Show success notification
+                showToastNotification('success', 'Email Sent', `Notification email sent to ${recipientEmail}!`);
+                
+            } catch (error) {
+                console.error('[v0] Failed to send email:', error);
+                
+                let errorMessage = 'Could not send email notification';
+                if (error.text) {
+                    errorMessage += `: ${error.text}`;
+                } else if (error.message) {
+                    errorMessage += `: ${error.message}`;
+                }
+                
+                showToastNotification('warning', 'Email Failed', errorMessage);
+                
+                if (error.text && error.text.includes('Invalid')) {
+                    showToastNotification('info', 'Email Setup Issue', 'Please check your EmailJS configuration in the setup modal');
+                }
+            }
+        }
+
+        function showEmailSetup() {
+            if (emailConfig.serviceId) {
+                document.getElementById('service-id').value = emailConfig.serviceId;
+            }
+            if (emailConfig.templateId) {
+                document.getElementById('template-id').value = emailConfig.templateId;
+            }
+            if (emailConfig.publicKey) {
+                document.getElementById('public-key').value = emailConfig.publicKey;
+            }
+            
+            document.getElementById('email-setup-modal').classList.remove('hidden');
+        }
+
+        function openEmailSettings() {
+            showEmailSetup();
+        }
+
+        function closeEmailSetup() {
+            document.getElementById('email-setup-modal').classList.add('hidden');
+        }
+
+        function skipEmailSetup() {
+            closeEmailSetup();
+            localStorage.setItem('parkev_email_skipped', 'true');
+        }
+
+        document.getElementById('email-config-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const serviceId = document.getElementById('service-id').value.trim();
+            const templateId = document.getElementById('template-id').value.trim();
+            const publicKey = document.getElementById('public-key').value.trim();
+            
+            console.log("[v0] Saving email configuration:", { serviceId, templateId, publicKey });
+            
+            if (serviceId && templateId && publicKey) {
+                emailConfig = {
+                    serviceId: serviceId,
+                    templateId: templateId,
+                    publicKey: publicKey,
+                    isConfigured: true
+                };
+                
+                // Save to localStorage
+                localStorage.setItem('parkev_email_config', JSON.stringify(emailConfig));
+                
+                // Initialize EmailJS
+                try {
+                    emailjs.init(emailConfig.publicKey);
+                    console.log('[v0] EmailJS initialized successfully with new config');
+                } catch (error) {
+                    console.error('[v0] Failed to initialize EmailJS:', error);
+                }
+                
+                closeEmailSetup();
+                showToastNotification('success', 'Email Configured!', 'Gmail notifications are now enabled');
+                
+                setTimeout(() => {
+                    sendEmailNotification(currentUser.email, 'ParkEV Email Test', 'Your email notifications are now configured and working!', 'Test Configuration');
+                }, 1000);
+            }
+        });
+
+        function loadEmailConfig() {
+            const saved = localStorage.getItem('parkev_email_config');
+            const skipped = localStorage.getItem('parkev_email_skipped');
+            
+            console.log("[v0] Loading email config:", { saved: !!saved, skipped: !!skipped });
+            
+            if (saved) {
+                emailConfig = JSON.parse(saved);
+                console.log("[v0] Loaded email config:", emailConfig);
+                try {
+                    emailjs.init(emailConfig.publicKey);
+                    console.log('[v0] EmailJS initialized from saved config');
+                } catch (error) {
+                    console.error('[v0] Failed to initialize EmailJS from saved config:', error);
+                }
+            } else if (!skipped && currentUser) {
+                // Show setup modal for first-time users
+                console.log("[v0] Showing email setup modal for first-time user");
+                setTimeout(() => showEmailSetup(), 2000);
+            }
+        }
+
+        // --- DATA & STATE ---
+        let users = [
+            { id: 1, email: 'admin@parkev.com', password: 'admin123', isAdmin: true },
+            { id: 2, email: 'user@parkev.com', password: 'user123', isAdmin: false }
+        ];
+
+        let notifications = [];
+        let notificationId = 1;
+
+        const karnatakaCities = ["Bengaluru", "Mysuru", "Mangaluru", "Hubballi", "Belagavi", "Shivamogga", "Davangere", "Ballari", "Vijayapura", "Kalaburagi", "Tumakuru", "Hassan", "Udupi", "Chitradurga", "Kolar"];
+        let generatedSpots = [];
+        for (let i = 0; i < 150; i++) {
+            const city = karnatakaCities[Math.floor(Math.random() * karnatakaCities.length)];
+            const chargerTypes = ['AC Slow', 'AC Fast', 'DC', 'None'];
+            const chargerType = chargerTypes[Math.floor(Math.random() * chargerTypes.length)];
+            let rate;
+            if (chargerType === 'None') rate = Math.floor(Math.random() * 40) + 30;
+            else if (chargerType === 'AC Slow') rate = Math.floor(Math.random() * 5) + 12;
+            else if (chargerType === 'AC Fast') rate = Math.floor(Math.random() * 6) + 17;
+            else rate = Math.floor(Math.random() * 6) + 23;
+            generatedSpots.push({ id: 100 + i, name: `${city} ${['Plaza', 'Central', 'Hub'][Math.floor(Math.random()*3)]}`, address: `${Math.floor(Math.random()*500)+1} Main, ${city}`, rate, status: Math.random() < 0.8 ? 'Available' : 'Booked', type: 'Public', chargerType, vehicleType: 'Both', ownerId: null, bookedBy: null, approval: 'approved' });
+        }
+        let initialSpots = [
+            { id: 1, name: "Koramangala DC HyperCharge", address: "123 Maple St, Bengaluru", rate: 25, chargerType: 'DC', status: 'Available', type: 'Public', vehicleType: 'Car', ownerId: null, bookedBy: null, approval: 'approved' },
+            { id: 2, name: "Indiranagar AC Park", address: "456 Oak Ave, Bengaluru", rate: 18, chargerType: 'AC Fast', status: 'Booked', type: 'Public', vehicleType: 'Both', ownerId: null, bookedBy: 2, approval: 'approved' },
+            { id: 4, name: "John's Home Charger", address: "101 Blossom Ct, Mysuru", rate: 14, chargerType: 'AC Slow', status: 'Available', type: 'P2P', ownerId: 2, bookedBy: null, approval: 'approved' },
+        ];
+        let spots = [...initialSpots, ...generatedSpots];
+
+        const distances = {"bengaluru-mysuru":145,"bengaluru-hassan":182,"bengaluru-tumakuru":70,"bengaluru-chitradurga":202,"bengaluru-hubballi":411,"bengaluru-belagavi":505,"bengaluru-mangaluru":352,"bengaluru-ballari":311,"bengaluru-shivamogga":302,"mysuru-hassan":115,"mysuru-mangaluru":255,"hassan-mangaluru":170,"hassan-shivamogga":105,"hubballi-belagavi":100,"hubballi-ballari":208,"hubballi-vijayapura":200,"tumakuru-chitradurga":132,"tumakuru-shivamogga":235};
+        const routes = {"bengaluru-hubballi":["tumakuru","chitradurga"],"bengaluru-belagavi":["tumakuru","chitradurga","hubballi"],"bengaluru-mangaluru":["hassan"],"bengaluru-ballari":["tumakuru","chitradurga"],"bengaluru-shivamogga":["tumakuru"],"mysuru-mangaluru":["hassan"]};
+        
+        const chatbotQuestions = [
+            { question: "What is JourneyIQ?", answer: "JourneyIQ is our intelligent trip planner! Enter your source, destination, and vehicle stats, and it will calculate if you need to charge and recommend the best spots along your route." },
+            { question: "How is charging priced?", answer: "Spots with chargers are billed per unit (₹/kWh), with different rates for Slow AC, Fast AC, and DC chargers. Parking-only spots are billed per hour (₹/hr)." },
+            { question: "How do I book a spot?", answer: "Find an available spot in the list, click 'Book', and then confirm your booking in the popup. The spot will be reserved for you." },
+            { question: "Can I cancel a booking?", answer: "Yes. Go to the 'My Bookings' section on your dashboard. You will see a 'Cancel' button next to each active booking." },
+            { question: "How do I list my own spot?", answer: "On the dashboard, find the 'List a New Spot' form. Fill in the details about your location, charger type, and price, then submit it for admin approval." },
+            { question: "What's the difference between AC and DC chargers?", answer: "DC (Direct Current) chargers are much faster and are ideal for quick top-ups on highways. AC (Alternating Current) chargers are more common and great for longer stays, like at work or overnight." },
+            { question: "What happens after I list a spot?", answer: "Your spot goes into a pending queue for an admin to review. Once approved, it will appear publicly on the map and in search results." },
+            { question: "Who do I contact for support?", answer: "For any issues, please use the contact information provided within the app. For this demo, all support is handled via the admin." }
+        ];
+
+        let currentUser = null, currentBookingSpotId = null;
+
+        function createNotification(type, title, message, userId = null) {
+            const notification = {
+                id: notificationId++,
+                type: type, // 'success', 'info', 'warning'
+                title: title,
+                message: message,
+                userId: userId, // null means for all users
+                timestamp: new Date(),
+                read: false
+            };
+            notifications.push(notification);
+            
+            // Show toast notification
+            showToastNotification(type, title, message);
+            
+            // Update notification bell
+            updateNotificationBell();
+            
+            if (userId && emailConfig.isConfigured) {
+                const user = users.find(u => u.id === userId);
+                if (user) {
+                    sendEmailNotification(user.email, title, message);
+                }
+            }
+            
+            return notification;
+        }
+        
+        function showToastNotification(type, title, message) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'info' ? 'fa-info-circle' : 'fa-exclamation-triangle'} text-xl"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h4 class="font-semibold">${title}</h4>
+                        <p class="text-sm opacity-90">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white opacity-70 hover:opacity-100">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Show notification
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        function updateNotificationBell() {
+            if (!currentUser) return;
+            
+            const bell = document.getElementById('notification-bell');
+            const badge = document.getElementById('notification-badge');
+            
+            // Show bell when user is logged in
+            bell.classList.remove('hidden');
+            
+            // Count unread notifications for current user
+            const unreadCount = notifications.filter(n => 
+                !n.read && (n.userId === null || n.userId === currentUser.id || currentUser.isAdmin)
+            ).length;
+            
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+        
+        function toggleNotificationPanel() {
+            const panel = document.getElementById('notification-panel');
+            panel.classList.toggle('show');
+            
+            if (panel.classList.contains('show')) {
+                renderNotifications();
+            }
+        }
+        
+        function renderNotifications() {
+            const list = document.getElementById('notification-list');
+            
+            // Filter notifications for current user
+            const userNotifications = notifications.filter(n => 
+                n.userId === null || n.userId === currentUser.id || currentUser.isAdmin
+            ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (userNotifications.length === 0) {
+                list.innerHTML = `
+                    <div class="p-4 text-center text-gray-500">
+                        <i class="fas fa-bell-slash text-2xl mb-2"></i>
+                        <p>No notifications yet</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = userNotifications.map(notification => `
+                <div class="notification-item ${!notification.read ? 'unread' : ''}" onclick="markAsRead(${notification.id})">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mt-1">
+                            <i class="fas ${notification.type === 'success' ? 'fa-check-circle text-green-500' : 
+                                notification.type === 'info' ? 'fa-info-circle text-blue-500' : 
+                                'fa-exclamation-triangle text-yellow-500'}"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <h4 class="font-medium text-sm text-gray-900">${notification.title}</h4>
+                            <p class="text-xs text-gray-600 mt-1">${notification.message}</p>
+                            <p class="text-xs text-gray-400 mt-1">${formatTimestamp(notification.timestamp)}</p>
+                        </div>
+                        ${!notification.read ? '<div class="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-2"></div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function markAsRead(notificationId) {
+            const notification = notifications.find(n => n.id === notificationId);
+            if (notification) {
+                notification.read = true;
+                updateNotificationBell();
+                renderNotifications();
+            }
+        }
+        
+        function markAllAsRead() {
+            notifications.forEach(n => {
+                if (n.userId === null || n.userId === currentUser.id || currentUser.isAdmin) {
+                    n.read = true;
+                }
+            });
+            updateNotificationBell();
+            renderNotifications();
+        }
+        
+        function formatTimestamp(timestamp) {
+            const now = new Date();
+            const diff = now - new Date(timestamp);
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            return `${days}d ago`;
+        }
+
+        function switchView(viewName) { 
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); 
+            const mainContent = document.querySelector('main');
+            if (viewName === 'login' || viewName === 'signup') {
+                mainContent.classList.remove('container', 'mx-auto', 'p-4', 'sm:p-6', 'lg:p-8');
+            } else {
+                mainContent.classList.add('container', 'mx-auto', 'p-4', 'sm:p-6', 'lg:p-8');
+            }
+            document.getElementById(`${viewName}-view`).classList.add('active'); 
+        }
+        function switchAuthView(viewName) { switchView(viewName); }
+
+        function showAppView() {
+            document.getElementById('app-header').classList.remove('hidden');
+            document.getElementById('welcome-message').textContent = `Welcome, ${currentUser.email}`;
+            
+            updateNotificationBell();
+            
+            loadEmailConfig();
+            
+            if (currentUser.isAdmin) {
+                document.getElementById('user-dashboard-view').classList.add('hidden');
+                document.getElementById('admin-view').classList.remove('hidden');
+            } else {
+                document.getElementById('user-dashboard-view').classList.remove('hidden');
+                document.getElementById('admin-view').classList.add('hidden');
+            }
+            switchView('app'); renderAll();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', function(e) { e.preventDefault(); const email = e.target.elements[0].value; const password = e.target.elements[1].value; const user = users.find(u => u.email === email && u.password === password); if (user) { currentUser = user; showAppView(); } else { alert('Invalid credentials.'); } });
+        document.getElementById('signup-form').addEventListener('submit', function(e) { e.preventDefault(); const email = document.getElementById('signup-email').value; const password = document.getElementById('signup-password').value; if (users.some(u => u.email === email)) { alert('Email already exists.'); return; } const newUser = { id: users.length + 1, email, password, isAdmin: false }; users.push(newUser); currentUser = newUser; showAppView(); });
+        
+        function handleLogout() { 
+            currentUser = null; 
+            document.getElementById('app-header').classList.add('hidden'); 
+            document.getElementById('notification-bell').classList.add('hidden');
+            document.getElementById('notification-panel').classList.remove('show');
+            document.getElementById('login-form').reset(); 
+            document.getElementById('signup-form').reset(); 
+            switchView('login'); 
+        }
+
+        function renderAll(searchTerm = '') { if (!currentUser) return; if (currentUser.isAdmin) { renderAdminView(); } else { renderUserDashboard(searchTerm); } }
+        function renderUserDashboard(searchTerm = '') { renderAvailableSpots(searchTerm); renderMyBookings(); renderMyListedSpots(); }
+        
+        function renderAvailableSpots(searchTerm = '') {
+            const list = document.getElementById('parking-list'); list.innerHTML = '';
+            const filteredSpots = spots.filter(s => s.approval === 'approved' && s.address.toLowerCase().includes(searchTerm.toLowerCase()));
+            if (filteredSpots.length === 0) { list.innerHTML = `<p class="text-gray-500 text-center mt-4">${searchTerm ? `No spots found in "${searchTerm}"` : 'Search for a spot by city.'}</p>`; return; }
+            
+            filteredSpots.forEach(spot => {
+                const isAvailable = spot.status === 'Available';
+                const priceUnit = spot.chargerType === 'None' ? '/hr' : '/kWh';
+                const card = `
+                    <div class="border border-gray-200 rounded-lg p-3 bg-white hover:border-blue-500 transition-all">
+                        <div class="flex justify-between items-start">
+                            <div><h3 class="font-bold text-sm">${spot.name}</h3><p class="text-xs text-gray-500">${spot.address}</p></div>
+                            <span class="text-xs font-semibold py-1 px-2 rounded-full ${isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${spot.status}</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-3">
+                            <span class="text-lg font-bold text-slate-800">₹${spot.rate}<span class="text-sm font-medium text-gray-500">${priceUnit}</span></span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openInfoModal(${spot.id})" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded-md hover:bg-gray-300">Info</button>
+                                <button ${!isAvailable ? 'disabled' : ''} onclick="openModal('booking-modal', ${spot.id})" class="text-xs bg-indigo-800 text-white py-1 px-3 rounded-md hover:bg-indigo-900 disabled:bg-gray-400">Book</button>
+                            </div>
+                        </div>
+                    </div>`;
+                list.insertAdjacentHTML('beforeend', card);
+            });
+        }
+        
+        function renderMyBookings() {
+            const list = document.getElementById('my-bookings-list'); list.innerHTML = ''; const myBookings = spots.filter(s => s.bookedBy === currentUser.id);
+            if (myBookings.length === 0) { list.innerHTML = '<p class="text-gray-500">You have no active bookings.</p>'; return; }
+            myBookings.forEach(spot => { list.insertAdjacentHTML('beforeend', `<div class="border rounded-lg p-4 bg-gray-50 flex justify-between items-center"><div><h3 class="font-bold">${spot.name}</h3><p class="text-sm text-gray-500">${spot.address}</p></div><button onclick="cancelBooking(${spot.id})" class="bg-red-100 text-red-700 hover:bg-red-200 text-sm font-medium py-1 px-3 rounded-md">Cancel</button></div>`); });
+        }
+        
+        function renderMyListedSpots() {
+            const list = document.getElementById('my-spots-list'); list.innerHTML = ''; const mySpots = spots.filter(s => s.ownerId === currentUser.id);
+            if (mySpots.length === 0) { list.innerHTML = '<p class="text-gray-500">You haven\'t listed any spots.</p>'; return; }
+            mySpots.forEach(spot => {
+                 let statusBadge;
+                if (spot.approval === 'pending') { statusBadge = `<span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pending</span>`; } 
+                else { statusBadge = `<span class="text-xs font-semibold py-1 px-2 rounded-full ${spot.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${spot.status}</span>`; }
+                const card = `<div class="border rounded-lg p-4 bg-gray-50"><div class="flex justify-between items-start"><div><h3 class="font-bold">${spot.name}</h3><p class="text-sm text-gray-500">${spot.address}</p></div><button onclick="deleteListing(${spot.id})" class="bg-red-100 text-red-700 hover:bg-red-200 text-sm font-medium py-1 px-3 rounded-md">Delete</button></div><div class="mt-2 text-right">${statusBadge}</div></div>`;
+                list.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        function renderAdminView() {
+            document.getElementById('admin-total-spots').textContent = spots.length;
+            const pendingSpots = spots.filter(s => s.approval === 'pending');
+            document.getElementById('admin-pending-approvals').textContent = pendingSpots.length;
+            const approvalList = document.getElementById('approval-list');
+            approvalList.innerHTML = '';
+            if (pendingSpots.length === 0) { approvalList.innerHTML = '<p class="text-gray-500">No pending approvals.</p>'; return; }
+            pendingSpots.forEach(spot => {
+                 const owner = users.find(u => u.id === spot.ownerId);
+                 const priceUnit = spot.chargerType === 'None' ? '/hr' : '/kWh';
+                 const item = `<div class="border rounded-lg p-4 bg-white shadow-sm flex justify-between items-center"><div><h4 class="font-semibold">${spot.name}</h4><p class="text-sm text-gray-600">${owner ? owner.email : 'Unknown'}</p><p class="text-sm font-medium text-gray-800">₹${spot.rate}${priceUnit}</p></div><div class="flex space-x-2"><button onclick="approveSpot(${spot.id})" class="bg-green-500 text-white px-3 py-1 rounded-md text-sm hover:bg-green-600">Approve</button><button onclick="rejectSpot(${spot.id})" class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600">Reject</button></div></div>`;
+                approvalList.insertAdjacentHTML('beforeend', item);
+            });
+        }
+        
+        function openModal(modalId, spotId = null) { if (spotId) { currentBookingSpotId = spotId; const spot = spots.find(s => s.id === spotId); const priceUnit = spot.chargerType === 'None' ? ' per hour' : ' per kWh'; document.getElementById('modal-spot-details').innerHTML = `<p><strong>Location:</strong> ${spot.name}</p><p><strong>Address:</strong> ${spot.address}</p><p class="text-xl font-bold mt-2"><strong>Rate:</strong> ₹${spot.rate}${priceUnit}</p>`; } if(modalId === 'journey-modal') { document.getElementById('journey-result').innerHTML = ''; } document.getElementById(modalId).style.display = 'flex'; }
+        function openInfoModal(spotId) { const spot = spots.find(s => s.id === spotId); const priceUnit = spot.chargerType === 'None' ? ' per hour' : ' per kWh'; document.getElementById('modal-info-details').innerHTML = `<div class="space-y-2"><div class="icon-text"><i class="fas fa-map-marker-alt"></i><span>${spot.address}</span></div><div class="icon-text"><i class="fas fa-bolt"></i><span>Charger: <b class="ml-1">${spot.chargerType.replace(' ', '\u00A0')}</b></span></div><div class="icon-text"><i class="fas fa-tag"></i><span>Price: <b class="ml-1">₹${spot.rate} ${priceUnit}</b></span></div><div class="icon-text"><i class="fas fa-car"></i><span>Supports: <b class="ml-1">${spot.vehicleType}</b></span></div></div>`; document.getElementById('info-modal').style.display = 'flex'; }
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; currentBookingSpotId = null; }
+
+        function getRouteKey(source, destination) {
+            const s = source.toLowerCase().trim();
+            const d = destination.toLowerCase().trim();
+            if (s === d) return null;
+            const key = `${s}-${d}`;
+            const reverseKey = `${d}-${s}`;
+            if (distances[key]) return key;
+            if (distances[reverseKey]) return reverseKey;
+            return null;
+        }
+
+        function calculateJourney() {
+            const btn = document.getElementById('journey-calculate-btn');
+            btn.innerHTML = `<div class="spinner"></div>`;
+            btn.disabled = true;
+
+            setTimeout(() => {
+                const source = document.getElementById('journey-source').value;
+                const destination = document.getElementById('journey-destination').value;
+                const range = parseInt(document.getElementById('journey-range').value);
+                const resultDiv = document.getElementById('journey-result');
+                if (!source || !destination || isNaN(range)) { resultDiv.innerHTML = `<p class="text-red-500">Please fill in all fields.</p>`; return; }
+
+                const key = getRouteKey(source, destination);
+                if (!key) { resultDiv.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg"><p>Sorry, we don't have route data for this trip. Please enter major cities in Karnataka.</p></div>`; return; }
+                
+                const tripDistance = distances[key];
+                if (range >= tripDistance) { resultDiv.innerHTML = `<div class="p-4 bg-green-100 text-green-700 rounded-lg"><p class="font-bold">Good to Go!</p><p>Your range of ${range}km is sufficient for the ${tripDistance}km trip to ${destination}.</p></div>`; return; }
+                
+                const routeCities = routes[key] || routes[key.split('-').reverse().join('-')] || [];
+                const allPossibleStops = [destination.toLowerCase().trim(), ...routeCities];
+                let recommendations = spots.filter(s => allPossibleStops.some(city => s.address.toLowerCase().includes(city)) && s.chargerType !== 'None' && s.status === 'Available').sort((a, b) => (b.chargerType === 'DC') - (a.chargerType === 'AC Fast') - (a.chargerType === 'AC Slow')); 
+                let stopsNeeded = tripDistance > 350 ? 2 : 1;
+                recommendations = recommendations.slice(0, stopsNeeded);
+
+                if (recommendations.length === 0) { resultDiv.innerHTML = `<div class="p-4 bg-yellow-100 text-yellow-700 rounded-lg"><p class="font-bold">Charge Required!</p><p>Your range is insufficient, but we couldn't find any available charging spots on this route in our network.</p></div>`; return; }
+
+                let recommendationsHtml = recommendations.map(spot => `<div class="mt-2 p-3 bg-gray-50 border rounded-lg"><h4 class="font-semibold">${spot.name}</h4><p class="text-sm text-gray-600">${spot.address}</p><div class="text-xs mt-1"><b>Charger:</b> ${spot.chargerType}</div><button onclick="bookRecommendedSpot(${spot.id})" class="mt-2 w-full bg-indigo-700 text-white py-1 rounded-md hover:bg-indigo-600 text-sm">Book This Spot</button></div>`).join('');
+                resultDiv.innerHTML = `<div class="p-4 bg-yellow-100 text-yellow-800 rounded-lg"><p class="font-bold">Charge Required!</p><p>Your range is insufficient for the ${tripDistance}km trip. We recommend stopping at one of these spots:</p>${recommendationsHtml}</div>`;
+            
+            }, 1000); // Simulate calculation time
+        }
+        
+        document.getElementById('journey-modal').addEventListener('hidden.bs.modal', () => {
+             const btn = document.getElementById('journey-calculate-btn');
+             btn.innerHTML = `<span>Calculate My Journey</span>`;
+             btn.disabled = false;
+        });
+
+        function bookRecommendedSpot(spotId) { closeModal('journey-modal'); openModal('booking-modal', spotId); }
+
+        function confirmBooking() { 
+            const spot = spots.find(s => s.id === currentBookingSpotId); 
+            if (spot) { 
+                console.log("[v0] Confirming booking for spot:", spot);
+                
+                spot.status = 'Booked'; 
+                spot.bookedBy = currentUser.id; 
+                closeModal('booking-modal'); 
+                renderAll(); 
+                
+                // Notification to user (booker)
+                createNotification('success', 'Booking Confirmed!', 
+                    `Your booking for "${spot.name}" has been confirmed successfully.`, currentUser.id);
+                
+                if (emailConfig.isConfigured) {
+                    console.log("[v0] Sending booking confirmation email to user:", currentUser.email);
+                    sendEmailNotification(
+                        currentUser.email, 
+                        'ParkEV Booking Confirmed', 
+                        `Your booking for "${spot.name}" at ${spot.address} has been confirmed. Rate: ₹${spot.rate}${spot.chargerType === 'None' ? '/hr' : '/kWh'}`, 
+                        spot.name
+                    );
+                }
+                
+                // Notification to provider (if it's a P2P spot)
+                if (spot.type === 'P2P' && spot.ownerId) {
+                    createNotification('info', 'Spot Booked!', 
+                        `Your spot "${spot.name}" has been booked by ${currentUser.email}.`, spot.ownerId);
+                    
+                    if (emailConfig.isConfigured) {
+                        const provider = users.find(u => u.id === spot.ownerId);
+                        if (provider) {
+                            console.log("[v0] Sending booking notification email to provider:", provider.email);
+                            sendEmailNotification(
+                                provider.email, 
+                                'ParkEV Spot Booked', 
+                                `Your spot "${spot.name}" has been booked by ${currentUser.email}. You will earn ₹${spot.rate}${spot.chargerType === 'None' ? '/hr' : '/kWh'} from this booking.`, 
+                                spot.name
+                            );
+                        }
+                    }
+                }
+                
+                // Notification to admin
+                const adminUser = users.find(u => u.isAdmin);
+                if (adminUser) {
+                    createNotification('info', 'New Booking Alert', 
+                        `${currentUser.email} booked "${spot.name}" - ${spot.address}`, adminUser.id);
+                    
+                    if (emailConfig.isConfigured) {
+                        console.log("[v0] Sending booking notification email to admin:", adminUser.email);
+                        sendEmailNotification(
+                            adminUser.email, 
+                            'ParkEV New Booking Alert', 
+                            `${currentUser.email} has booked "${spot.name}" at ${spot.address}. This generates platform revenue.`, 
+                            spot.name
+                        );
+                    }
+                }
+                
+                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.address)}`, '_blank'); 
+            } 
+        }
+        
+        function cancelBooking(spotId) { 
+            const spot = spots.find(s => s.id === spotId); 
+            if (spot) { 
+                spot.status = 'Available'; 
+                spot.bookedBy = null; 
+                renderAll(); 
+                
+                // Notification to user
+                createNotification('warning', 'Booking Cancelled', 
+                    `Your booking for "${spot.name}" has been cancelled.`, currentUser.id);
+                
+                // Notification to provider (if it's a P2P spot)
+                if (spot.type === 'P2P' && spot.ownerId) {
+                    createNotification('warning', 'Booking Cancelled', 
+                        `The booking for your spot "${spot.name}" has been cancelled.`, spot.ownerId);
+                }
+                
+                // Notification to admin
+                const adminUser = users.find(u => u.isAdmin);
+                if (adminUser) {
+                    createNotification('warning', 'Booking Cancelled', 
+                        `Booking cancelled for "${spot.name}" by ${currentUser.email}`, adminUser.id);
+                }
+            } 
+        }
+        
+        function deleteListing(spotId) { 
+            if (confirm('Are you sure you want to delete this listing?')) { 
+                const spot = spots.find(s => s.id === spotId);
+                spots = spots.filter(s => s.id !== spotId); 
+                renderAll(); 
+                
+                createNotification('warning', 'Listing Deleted', 
+                    `Your spot listing "${spot.name}" has been deleted.`, currentUser.id);
+            } 
+        }
+        
+        function approveSpot(spotId) { 
+            const spot = spots.find(s => s.id === spotId); 
+            if (spot) { 
+                spot.approval = 'approved'; 
+                renderAdminView(); 
+                
+                // Notification to spot owner
+                createNotification('success', 'Spot Approved!', 
+                    `Your spot "${spot.name}" has been approved and is now live!`, spot.ownerId);
+                
+                // Send email to spot owner upon approval
+                if (emailConfig.isConfigured) {
+                    const owner = users.find(u => u.id === spot.ownerId);
+                    if (owner) {
+                        console.log("[v0] Sending spot approval email to owner:", owner.email);
+                        sendEmailNotification(
+                            owner.email, 
+                            'Your ParkEV Spot Listing Approved!', 
+                            `Great news! Your spot "${spot.name}" has been approved by the admin and is now available for booking by other users.`, 
+                            spot.name
+                        );
+                    }
+                }
+                
+                // Notification to admin
+                createNotification('success', 'Spot Approved', 
+                    `Successfully approved "${spot.name}" for listing.`, currentUser.id);
+            } 
+        }
+        
+        function rejectSpot(spotId) { 
+            if (confirm('Are you sure you want to reject and delete this listing?')) { 
+                const spot = spots.find(s => s.id === spotId);
+                spots = spots.filter(s => s.id !== spotId); 
+                renderAdminView(); 
+                
+                // Notification to spot owner
+                createNotification('warning', 'Spot Rejected', 
+                    `Your spot "${spot.name}" has been rejected and removed from review.`, spot.ownerId);
+                
+                // Send email to spot owner upon rejection
+                if (emailConfig.isConfigured) {
+                    const owner = users.find(u => u.id === spot.ownerId);
+                    if (owner) {
+                        console.log("[v0] Sending spot rejection email to owner:", owner.email);
+                        sendEmailNotification(
+                            owner.email, 
+                            'Your ParkEV Spot Listing Rejected', 
+                            `Unfortunately, your spot listing "${spot.name}" did not meet our criteria and has been rejected. Please review our guidelines and consider re-submitting if appropriate.`, 
+                            spot.name
+                        );
+                    }
+                }
+                
+                // Notification to admin
+                createNotification('info', 'Spot Rejected', 
+                    `Successfully rejected and removed "${spot.name}" from listings.`, currentUser.id);
+            } 
+        }
+
+        document.getElementById('search-form').addEventListener('submit', function(e) { e.preventDefault(); renderAvailableSpots(document.getElementById('search-input').value); });
+        
+        document.getElementById('add-charger-type').addEventListener('change', function(e) { const priceLabel = document.getElementById('price-label'); const priceInput = document.getElementById('add-price'); if (e.target.value === 'None') { priceLabel.textContent = 'Rate per hour (₹)'; priceInput.placeholder = 'e.g., 50'; } else { priceLabel.textContent = 'Rate per kWh (₹)'; priceInput.placeholder = 'e.g., 18'; } });
+        document.getElementById('add-spot-form').addEventListener('submit', function(e) { 
+            e.preventDefault(); 
+            const formData = new FormData(e.target); 
+            const newSpot = { 
+                id: spots.length + Math.random(), 
+                name: formData.get('name'), 
+                address: formData.get('address'), 
+                rate: parseFloat(formData.get('rate')), 
+                chargerType: formData.get('chargerType'), 
+                vehicleType: formData.get('vehicleType'), 
+                status: 'Available', 
+                type: 'P2P', 
+                ownerId: currentUser.id, 
+                bookedBy: null, 
+                approval: 'pending' 
+            }; 
+            spots.push(newSpot); 
+            renderMyListedSpots(); 
+            
+            // Notification to user
+            createNotification('info', 'Spot Submitted!', 
+                `Your spot "${newSpot.name}" has been submitted for admin approval.`, currentUser.id);
+            
+            // Send email to admin about new spot submission
+            if (emailConfig.isConfigured) {
+                const adminUser = users.find(u => u.isAdmin);
+                if (adminUser) {
+                    console.log("[v0] Sending new spot submission email to admin:", adminUser.email);
+                    sendEmailNotification(
+                        adminUser.email, 
+                        'New ParkEV Spot Listing Pending Approval', 
+                        `A new spot listing "${newSpot.name}" has been submitted by ${currentUser.email}. Please review it in the admin dashboard.`, 
+                        newSpot.name
+                    );
+                }
+            }
+            
+            e.target.reset(); 
+            document.getElementById('price-label').textContent = 'Rate per hour (₹)'; 
+        });
+        
+        function toggleChatbot() { document.getElementById('chatbot-window').classList.toggle('hidden'); }
+        function renderChatbotQuestions() { const container = document.getElementById('chat-questions'); container.innerHTML = chatbotQuestions.map(item => `<button onclick="showChatbotAnswer('${item.answer.replace(/'/g, "\\'")}')" class="w-full text-left text-sm p-2 bg-gray-100 hover:bg-blue-100 rounded-md transition mb-1">${item.question}</button>`).join(''); }
+        function showChatbotAnswer(answer) { const messagesContainer = document.getElementById('chat-messages'); messagesContainer.insertAdjacentHTML('beforeend', `<div class="bg-indigo-800 text-white p-3 rounded-lg self-end max-w-xs fade-in"><p class="text-sm">${answer}</p></div>`); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('notification-panel');
+            const bell = document.getElementById('notification-bell');
+            
+            if (!panel.contains(e.target) && !bell.contains(e.target)) {
+                panel.classList.remove('show');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => { switchView('login'); renderChatbotQuestions(); });
+    </script>
+</body>
+</html>
